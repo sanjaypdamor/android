@@ -1,1 +1,106 @@
 
+
+[1] Please add this dependencies inside your project build.gradle(Module:app) file 
+
+dependencies {
+    implementation 'com.google.firebase:firebase-messaging:17.3.4'
+}
+
+
+[2] Add this service indside your project manifest file inside <application> tag
+
+ <service android:name=".fcm.MyFirebaseMessagingService">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+</service>
+
+</application>
+
+
+[3] Create a java file FCM
+
+
+public class MyFirebaseMessagingService extends FirebaseMessagingService {
+    static int notificationId = 0;
+    private static final String TAG = "MyFirebaseMsgService";
+
+    private StoreUserData storeUserData;
+
+    public MyFirebaseMessagingService() {
+    }
+
+    @Override
+    public void onNewToken(String s) {
+        super.onNewToken(s);
+        //get fcm token hear inside s variable.
+        new StoreUserData(this).setString(Constants.USER_FCM, s);
+    }
+
+    @Override
+    public void onMessageReceived(RemoteMessage remoteMessage) {
+        Log.d(TAG, "From: " + remoteMessage.getFrom());
+        
+        //storeUserData = new StoreUserData(this);
+
+        if (remoteMessage.getData().size() > 0) {
+            Log.d(TAG, "Message data payload: " + remoteMessage.getData().get("message"));
+            sendNotification(remoteMessage.getData().get("message"));
+            try {
+                String fromUserId = new JSONObject(remoteMessage.getData().get("messageArray")).getString("fromUserId");
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (remoteMessage.getNotification() != null) {
+            Log.d(TAG, "Message Notification Body: " + remoteMessage.getNotification().getBody());
+            try {
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    private void sendNotification(String messageBody) {
+    
+        Intent intent = new Intent(this, MainActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0 /* Request code */, intent,PendingIntent.FLAG_ONE_SHOT);
+
+        NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+        String channelId = "Chat";
+        int importance = NotificationManager.IMPORTANCE_HIGH;
+        CharSequence channelName = "Add your channel name";
+       
+       if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            NotificationChannel notificationChannel = new NotificationChannel(channelId, channelName, importance);
+            notificationChannel.enableLights(true);
+            notificationChannel.setLightColor(Color.RED);
+            notificationChannel.enableVibration(true);
+            notificationChannel.setVibrationPattern(new long[]{100, 200});
+            notificationManager.createNotificationChannel(notificationChannel);
+        }
+
+        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        NotificationCompat.Builder notificationBuilder = new NotificationCompat.Builder(this, channelId)
+                .setSmallIcon(getNotificationIcon())
+                .setContentTitle(getResources().getString(R.string.app_name))
+                .setContentText(messageBody)
+                .setColor(ContextCompat.getColor(this, R.color.colorPrimaryDark))
+                .setAutoCancel(true)
+                .setVibrate(new long[]{100, 200})
+                .setSound(defaultSoundUri)
+                .setContentIntent(pendingIntent);
+        notificationId++;
+        notificationManager.notify(notificationId, notificationBuilder.build());
+    }
+
+    private int getNotificationIcon() {
+        boolean useWhiteIcon = (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP);
+        return useWhiteIcon ? R.drawable.ic_notification : R.mipmap.ic_launcher;
+    }
+}
+        
+
